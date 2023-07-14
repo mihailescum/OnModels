@@ -1,6 +1,10 @@
 #ifndef XY_TYPES_H
 #define XY_TYPES_H
 
+#include <wolff.hpp>
+
+#define MATH_2PI 6.28318530718
+
 namespace onmodels
 {
     class spin_xy
@@ -15,27 +19,50 @@ namespace onmodels
     class transformation_xy
     {
     public:
-        transformation_xy(){};
+        double angle;
+
+        transformation_xy() : angle(0){};
+        transformation_xy(double angle) : angle(angle){};
 
         spin_xy act(const spin_xy &x) const
         {
-            return spin_xy();
+            double theta = x.theta + angle;
+            if (theta > MATH_2PI)
+                theta -= MATH_2PI;
+            return spin_xy(theta);
         }
 
         spin_xy act_inverse(const spin_xy &x) const
         {
-            return spin_xy();
+            double theta = x.theta - angle;
+            if (theta <= 0)
+                theta += MATH_2PI;
+            return spin_xy(theta);
         }
 
         transformation_xy act(const transformation_xy &t) const
         {
-            return transformation_xy();
+            double angle_new = t.angle + angle;
+            if (angle_new > MATH_2PI)
+                angle_new -= MATH_2PI;
+            return transformation_xy(angle_new);
         }
 
         transformation_xy act_inverse(const transformation_xy &t) const
         {
-            return transformation_xy();
+            double angle_new = t.angle - angle;
+            if (angle_new <= 0)
+                angle_new += MATH_2PI;
+            return transformation_xy(angle_new);
         }
+    };
+
+    template <class G_t>
+    transformation_xy generate_uniform_rotation(std::mt19937 &r, const wolff::system<transformation_xy, spin_xy, G_t> &, const typename G_t::vertex &)
+    {
+        std::uniform_real_distribution<double> dist(0, MATH_2PI);
+        double angle = dist(r);
+        return transformation_xy(angle);
     };
 }
 
