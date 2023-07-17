@@ -11,17 +11,27 @@ Code: https://git.kent-dobias.com/wolff/.
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
+#include <filesystem>
 
 #include <wolff_models/vector.hpp>
 #include <wolff_models/orthogonal.hpp>
 
 #include "crosssection_measurement.hpp"
 #include "xy_types.hpp"
+#include "graphs.hpp"
 
 typedef wolff::graph<> G_t;
 typedef wolff::system<onmodels::transformation_xy, onmodels::spin_xy, G_t> sys;
 
-std::string pretty_print_crosssection(const std::vector<double> &crosssection, unsigned L)
+enum GraphType
+{
+    Grid,
+    Hierarchical,
+    Invalid,
+};
+
+std::string prettyPrintCrosssection(const std::vector<double> &crosssection, unsigned L)
 {
     std::stringstream ss;
     for (unsigned i = 0; i < L; i++)
@@ -35,25 +45,60 @@ std::string pretty_print_crosssection(const std::vector<double> &crosssection, u
     return ss.str();
 }
 
+GraphType resolveGraphType(const std::string type)
+{
+    if (type == "grid")
+        return GraphType::Grid;
+    else if (type == "hierarchical")
+        return GraphType::Hierarchical;
+    else
+        return GraphType::Invalid;
+}
+
+template <class T>
+std::string table2str(const std::vector<std::vector<T>> &v)
+{
+    std::stringstream ss;
+    for (auto row : v)
+    {
+        copy(row.begin(), row.end(), std::ostream_iterator<T>(ss, " "));
+        ss << std::endl;
+    }
+    return ss.str();
+}
+
+bool write_file(const std::string content, const std::string directory, const std::string filename)
+{
+    if (!std::filesystem::is_directory(directory))
+    {
+        if (!std::filesystem::create_directory(directory))
+            return false;
+    }
+
+    std::ofstream output_file(directory + "/" + filename + ".txt");
+    output_file << content;
+    output_file.close();
+
+    return true;
+}
+
 int main(int argc, char *argv[])
 {
     // set defaults
     unsigned N = (unsigned)1e3; // Number of iterations
-    unsigned D = 2;             // Dimension
     unsigned L = 16;            // Lattice side length
-    double T = 0.8;             // Temperature
+    double T = 10;              // Temperature
+    std::string graphTypeStr = "hierarchical";
+    std::string result_directory = "results";
 
     // take command line arguments
     int opt;
-    while ((opt = getopt(argc, argv, "N:D:L:T:")) != -1)
+    while ((opt = getopt(argc, argv, "N:L:T:G:")) != -1)
     {
         switch (opt)
         {
         case 'N':
             N = (unsigned)atof(optarg);
-            break;
-        case 'D':
-            D = atoi(optarg);
             break;
         case 'L':
             L = atoi(optarg);
@@ -61,9 +106,30 @@ int main(int argc, char *argv[])
         case 'T':
             T = atof(optarg);
             break;
+        case 'G':
+            graphTypeStr = optarg;
+            break;
         default:
             exit(EXIT_FAILURE);
         }
+    }
+
+    GraphType graphType = resolveGraphType(graphTypeStr);
+
+    G_t graph(2, L);
+    std::string measurement_filename;
+    switch (graphType)
+    {
+    case GraphType::Grid:
+        measurement_filename = "xy_grid";
+        graph = onmodels::grid(L);
+        break;
+    case GraphType::Hierarchical:
+        measurement_filename = "xy_hierarchical";
+        graph = onmodels::hierarchical(L, 4);
+        break;
+    default:
+        exit(EXIT_FAILURE);
     }
 
     // define the spin-spin coupling
@@ -72,9 +138,6 @@ int main(int argc, char *argv[])
     {
         return std::cos(s1.theta - s2.theta);
     };
-
-    // initialize the lattice
-    G_t graph(D, L);
 
     // initialize the system
     wolff::system<onmodels::transformation_xy, onmodels::spin_xy> system(graph, T, spin_spin_interaction);
@@ -92,8 +155,15 @@ int main(int argc, char *argv[])
     system.run_wolff(N, transformation_generator, measurement, rng);
     std::vector<double> crosssection = measurement.get_crossection();
 
-    // print the result of our measurements
-    std::cout << pretty_print_crosssection(crosssection, L) << std::endl;
+    // Write the result of our measurements
+    std::string measurement_result = prettyPrintCrosssection(crosssection, L);
+    if (!write_file(measurement_result, result_directory, measurement_filename))
+        exit(EXIT_FAILURE);
+
+    // Write adjacency matrix
+    std::vector<std::vector<int>> adj_matrix = onmodels::compute_adjacency_table(graph);
+    if (!write_file(table2str(adj_matrix), result_directory, measurement_filename + "_adj"))
+        exit(EXIT_FAILURE);
 
     return 0;
 }

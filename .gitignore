@@ -1,4 +1,6 @@
 build/
+src/results/
+results/
 
 # VS Code
 .vscode/*
