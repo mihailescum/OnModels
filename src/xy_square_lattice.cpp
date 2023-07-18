@@ -21,7 +21,7 @@ Code: https://git.kent-dobias.com/wolff/.
 #include "xy_types.hpp"
 #include "graphs.hpp"
 
-typedef wolff::graph<> G_t;
+typedef wolff::graph<std::tuple<>, double> G_t;
 typedef wolff::system<onmodels::transformation_xy, onmodels::spin_xy, G_t> sys;
 
 enum GraphType
@@ -126,21 +126,22 @@ int main(int argc, char *argv[])
         break;
     case GraphType::Hierarchical:
         measurement_filename = "xy_hierarchical";
-        graph = onmodels::hierarchical(L, 4);
+        graph = onmodels::hierarchical(L, 3);
         break;
     default:
         exit(EXIT_FAILURE);
     }
 
     // define the spin-spin coupling
-    std::function<double(const onmodels::spin_xy &, const onmodels::spin_xy &)> spin_spin_interaction =
-        [](const onmodels::spin_xy &s1, const onmodels::spin_xy &s2) -> double
+    std::function<double(const G_t::halfedge &, const onmodels::spin_xy &, const onmodels::spin_xy &)> spin_spin_interaction =
+        [](const G_t::halfedge &e, const onmodels::spin_xy &s1, const onmodels::spin_xy &s2) -> double
     {
-        return std::cos(s1.theta - s2.theta);
+        double strenght = e.prop;
+        return strenght * std::cos(s1.theta - s2.theta);
     };
 
     // initialize the system
-    wolff::system<onmodels::transformation_xy, onmodels::spin_xy> system(graph, T, spin_spin_interaction);
+    sys system(graph, T, spin_spin_interaction);
 
     std::function<onmodels::transformation_xy(std::mt19937 &, const sys &, const G_t::vertex)> transformation_generator = onmodels::generate_uniform_rotation<G_t>;
 

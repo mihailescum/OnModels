@@ -18,7 +18,7 @@ namespace onmodels
         return std::tuple<unsigned, unsigned, unsigned>(x, y, z);
     }
 
-    class grid : public wolff::graph<>
+    class grid : public wolff::graph<std::tuple<>, double>
     {
     public:
         grid(unsigned L) : graph()
@@ -73,12 +73,13 @@ namespace onmodels
         void add_edge(unsigned i, unsigned j)
         {
             halfedge f(vertices[i], vertices[j]);
+            f.prop = 1.0;
             vertices[i].edges.push_back(f);
             ne++;
         }
     };
 
-    class hierarchical : public wolff::graph<>
+    class hierarchical : public wolff::graph<std::tuple<>, double>
     {
     public:
         hierarchical(unsigned L, unsigned levels) : graph()
@@ -122,83 +123,77 @@ namespace onmodels
                     unsigned z_center = z + L_local_level * z_local; // + L_local_level / 2;
                     unsigned ind_center = to_1D(x_center, y_center, z_center, L);
 
+                    double weight = pow(2.0, level);
                     if (x_local > 0)
                     {
                         unsigned ind_neighbor = to_1D(x + L_local_level * (x_local - 1) + L_local_level / 2, y_center, z_center, L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
                     if (x_local < 1)
                     {
                         unsigned ind_neighbor = to_1D(x + L_local_level * (x_local + 1) + L_local_level / 2, y_center, z_center, L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
 
                     if (y_local > 0)
                     {
                         unsigned ind_neighbor = to_1D(x_center, y + L_local_level * (y_local - 1) + L_local_level / 2, z_center, L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
                     if (y_local < 1)
                     {
                         unsigned ind_neighbor = to_1D(x_center, y + L_local_level * (y_local + 1) + L_local_level / 2, z_center, L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
 
                     if (z_local > 0)
                     {
                         unsigned ind_neighbor = to_1D(x_center, y_center, z + L_local_level * (z_local - 1), L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
                     if (z_local < 1)
                     {
                         unsigned ind_neighbor = to_1D(x_center, y_center, z + L_local_level * (z_local + 1), L);
-                        halfedge e(vertices[ind_center], vertices[ind_neighbor]);
-                        vertices[ind_center].edges.push_back(e);
-                        ne++;
+                        add_edge(ind_center, ind_neighbor, weight);
                     }
                 }
             }
             else
             {
                 grid grid(L_level);
-                for (wolff::graph<>::vertex &v : grid.vertices)
+                for (auto &v : grid.vertices)
                 {
                     auto [x_local, y_local, z_local] = to_3D(v.ind, L_level);
                     unsigned ind = to_1D(x + x_local, y + y_local, z + z_local, L);
 
-                    for (wolff::graph<>::halfedge &e : v.edges)
+                    for (const auto &e : v.edges)
                     {
                         auto [x_neighbor_local, y_neighbor_local, z_neighbor_local] = to_3D(e.neighbor.ind, L_level);
                         unsigned ind_neighbor = to_1D(x + x_neighbor_local, y + y_neighbor_local, z + z_neighbor_local, L);
-
-                        halfedge f(vertices[ind], vertices[ind_neighbor]);
-                        vertices[ind].edges.push_back(f);
+                        add_edge(ind, ind_neighbor, 1.0);
                     }
                 }
-                ne = grid.ne;
             }
             return ne;
+        }
+
+        void add_edge(unsigned i, unsigned j, double prop)
+        {
+            halfedge f(vertices[i], vertices[j]);
+            f.prop = prop;
+            vertices[i].edges.push_back(f);
+            ne++;
         }
     };
 
     std::vector<std::vector<int>>
-    compute_adjacency_table(const wolff::graph<> &graph)
+    compute_adjacency_table(const wolff::graph<std::tuple<>, double> &graph)
     {
         std::vector<std::vector<int>> result;
         for (unsigned i = 0; i < graph.nv; i++)
         {
             std::vector<int> neighbors;
-            for (const wolff::graph<>::halfedge &edge : graph.vertices[i].edges)
+            for (const auto &edge : graph.vertices[i].edges)
                 neighbors.push_back(edge.neighbor.ind);
             result.push_back(neighbors);
         }
