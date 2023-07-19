@@ -1,10 +1,12 @@
 #ifndef ONMODELS_CROSSECTION_MEASUREMENT_H
 #define ONMODELS_CROSSECTION_MEASUREMENT_H
 
+#include "event_measurement.hpp"
+
 namespace onmodels
 {
     template <class R_t, class X_t, class G_t>
-    class crosssection_measurement : public wolff::measurement<R_t, X_t, G_t>
+    class crosssection_measurement : public event_measurement<R_t, X_t, G_t>
     {
     public:
         const wolff::system<R_t, X_t, G_t> &S;

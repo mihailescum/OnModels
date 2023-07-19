@@ -9,6 +9,8 @@ Code: https://git.kent-dobias.com/wolff/.
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <iomanip>
+#include <sstream>
 
 #include <wolff_models/vector.hpp>
 #include <wolff_models/orthogonal.hpp>
@@ -38,13 +40,34 @@ GraphType resolveGraphType(const std::string type)
         return GraphType::Invalid;
 }
 
+void post_cluster_callback(unsigned n, unsigned N, const sys &S) //, const typename G_t::vertex &v, const onmodels::transformation_xy &r)
+{
+    double percentage = (double)n / N;
+    int barWidth = 70;
+
+    std::stringstream out;
+    out << "[";
+    int pos = barWidth * percentage;
+    for (int i = 0; i < barWidth; ++i)
+    {
+        if (i < pos)
+            out << "=";
+        else if (i == pos)
+            out << ">";
+        else
+            out << " ";
+    }
+    out << "] " << std::fixed << std::setprecision(1) << percentage * 100 << "%";
+    std::cout << out.str() << "\r" << std::flush;
+}
+
 int main(int argc, char *argv[])
 {
     // set defaults
-    unsigned N = (unsigned)1e3; // Number of iterations
+    unsigned N = (unsigned)1e2; // Number of iterations
     unsigned L = 16;            // Lattice side length
-    double T = 10;              // Temperature
-    std::string graphTypeStr = "hierarchical";
+    double T = 0.5;             // Temperature
+    std::string graphTypeStr = "grid";
     std::string result_directory = "results";
 
     // take command line arguments
@@ -66,6 +89,7 @@ int main(int argc, char *argv[])
             graphTypeStr = optarg;
             break;
         default:
+            std::cerr << "Unknown argument: " << opt << std::endl;
             exit(EXIT_FAILURE);
         }
     }
@@ -85,6 +109,7 @@ int main(int argc, char *argv[])
         graph = onmodels::hierarchical(L, 3);
         break;
     default:
+        std::cerr << "Unknown graph type: " << graphTypeStr << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -103,6 +128,8 @@ int main(int argc, char *argv[])
 
     // initailze the measurement object
     onmodels::crosssection_measurement measurement(system);
+    std::function post_cluster_callback_func = &post_cluster_callback;
+    measurement.add_post_cluster_listener(post_cluster_callback_func);
 
     // initialize the random number generator
     auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -115,12 +142,18 @@ int main(int argc, char *argv[])
     // Write the result of our measurements
     std::string measurement_result = onmodels::prettyPrintCrosssection(crosssection, L);
     if (!onmodels::write_txt(measurement_result, result_directory, measurement_filename))
+    {
+        std::cerr << "Something went wrong when writing the cross section result file." << std::endl;
         exit(EXIT_FAILURE);
+    }
 
     // Write adjacency matrix
     std::vector<std::vector<int>> adj_matrix = onmodels::compute_adjacency_table(graph);
     if (!onmodels::write_txt(onmodels::table2str(adj_matrix), result_directory, measurement_filename + "_adj"))
+    {
+        std::cerr << "Something went wrong when writing the adjacency matrix file." << std::endl;
         exit(EXIT_FAILURE);
+    }
 
     return 0;
 }

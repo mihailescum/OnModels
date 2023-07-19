@@ -123,7 +123,7 @@ namespace onmodels
                     unsigned z_center = z + L_local_level * z_local; // + L_local_level / 2;
                     unsigned ind_center = to_1D(x_center, y_center, z_center, L);
 
-                    double weight = pow(2.0, level);
+                    double weight = L_local_level * L_local_level;
                     if (x_local > 0)
                     {
                         unsigned ind_neighbor = to_1D(x + L_local_level * (x_local - 1) + L_local_level / 2, y_center, z_center, L);
