@@ -9,10 +9,6 @@ Code: https://git.kent-dobias.com/wolff/.
 #include <chrono>
 #include <cmath>
 #include <string>
-#include <sstream>
-#include <iomanip>
-#include <fstream>
-#include <filesystem>
 
 #include <wolff_models/vector.hpp>
 #include <wolff_models/orthogonal.hpp>
@@ -20,6 +16,7 @@ Code: https://git.kent-dobias.com/wolff/.
 #include "crosssection_measurement.hpp"
 #include "xy_types.hpp"
 #include "graphs.hpp"
+#include "io.hpp"
 
 typedef wolff::graph<std::tuple<>, double> G_t;
 typedef wolff::system<onmodels::transformation_xy, onmodels::spin_xy, G_t> sys;
@@ -31,20 +28,6 @@ enum GraphType
     Invalid,
 };
 
-std::string prettyPrintCrosssection(const std::vector<double> &crosssection, unsigned L)
-{
-    std::stringstream ss;
-    for (unsigned i = 0; i < L; i++)
-    {
-        for (unsigned j = 0; j < L; j++)
-        {
-            ss << std::fixed << std::setprecision(2) << crosssection[i * L + j] << " ";
-        }
-        ss << std::endl;
-    }
-    return ss.str();
-}
-
 GraphType resolveGraphType(const std::string type)
 {
     if (type == "grid")
@@ -53,33 +36,6 @@ GraphType resolveGraphType(const std::string type)
         return GraphType::Hierarchical;
     else
         return GraphType::Invalid;
-}
-
-template <class T>
-std::string table2str(const std::vector<std::vector<T>> &v)
-{
-    std::stringstream ss;
-    for (auto row : v)
-    {
-        copy(row.begin(), row.end(), std::ostream_iterator<T>(ss, " "));
-        ss << std::endl;
-    }
-    return ss.str();
-}
-
-bool write_file(const std::string content, const std::string directory, const std::string filename)
-{
-    if (!std::filesystem::is_directory(directory))
-    {
-        if (!std::filesystem::create_directory(directory))
-            return false;
-    }
-
-    std::ofstream output_file(directory + "/" + filename + ".txt");
-    output_file << content;
-    output_file.close();
-
-    return true;
 }
 
 int main(int argc, char *argv[])
@@ -157,13 +113,13 @@ int main(int argc, char *argv[])
     std::vector<double> crosssection = measurement.get_crossection();
 
     // Write the result of our measurements
-    std::string measurement_result = prettyPrintCrosssection(crosssection, L);
-    if (!write_file(measurement_result, result_directory, measurement_filename))
+    std::string measurement_result = onmodels::prettyPrintCrosssection(crosssection, L);
+    if (!onmodels::write_txt(measurement_result, result_directory, measurement_filename))
         exit(EXIT_FAILURE);
 
     // Write adjacency matrix
     std::vector<std::vector<int>> adj_matrix = onmodels::compute_adjacency_table(graph);
-    if (!write_file(table2str(adj_matrix), result_directory, measurement_filename + "_adj"))
+    if (!onmodels::write_txt(onmodels::table2str(adj_matrix), result_directory, measurement_filename + "_adj"))
         exit(EXIT_FAILURE);
 
     return 0;

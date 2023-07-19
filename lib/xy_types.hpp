@@ -1,5 +1,5 @@
-#ifndef XY_TYPES_H
-#define XY_TYPES_H
+#ifndef ONMODELS_XY_TYPES_H
+#define ONMODELS_XY_TYPES_H
 
 #include <wolff.hpp>
 
